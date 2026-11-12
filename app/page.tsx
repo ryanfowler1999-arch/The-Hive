@@ -1,39 +1,239 @@
-'use client';
-import {useEffect,useState} from 'react';
-import {ArrowRight, RotateCcw, Share2, Crown, Hexagon, Sparkles, Check, Info} from 'lucide-react';
+"use client";
 
-type Choice={label:string;aliases:string[];pct:number};
-type Question={prompt:string;choices:Choice[]};
-const questions:Question[]=[
- {prompt:'Name something people forget when leaving the house.',choices:[{label:'Keys',aliases:['key','keys','car keys','house keys'],pct:43},{label:'Phone',aliases:['phone','cellphone','cell phone','mobile','mobile phone'],pct:29},{label:'Wallet',aliases:['wallet','purse'],pct:18},{label:'Other',aliases:[],pct:10}]},
- {prompt:'Name a food people order for delivery.',choices:[{label:'Pizza',aliases:['pizza'],pct:51},{label:'Burgers',aliases:['burger','burgers','hamburger','hamburgers'],pct:24},{label:'Chinese food',aliases:['chinese','chinese food','chinese takeout'],pct:16},{label:'Other',aliases:[],pct:9}]},
- {prompt:'Name an animal people are afraid of.',choices:[{label:'Spider',aliases:['spider','spiders'],pct:48},{label:'Snake',aliases:['snake','snakes'],pct:32},{label:'Shark',aliases:['shark','sharks'],pct:12},{label:'Other',aliases:[],pct:8}]},
- {prompt:'Name a place people dream of visiting.',choices:[{label:'Paris',aliases:['paris','france'],pct:35},{label:'Japan',aliases:['japan','tokyo'],pct:30},{label:'Hawaii',aliases:['hawaii'],pct:21},{label:'Other',aliases:[],pct:14}]},
- {prompt:'Name something people do right after waking up.',choices:[{label:'Check phone',aliases:['phone','check phone','check my phone','look at phone','scroll phone'],pct:41},{label:'Brush teeth',aliases:['brush teeth','brush my teeth','brushing teeth'],pct:27},{label:'Use bathroom',aliases:['bathroom','use bathroom','pee','toilet'],pct:20},{label:'Other',aliases:[],pct:12}]},
- {prompt:'Name a superpower people would want.',choices:[{label:'Flying',aliases:['fly','flying','flight'],pct:39},{label:'Invisibility',aliases:['invisibility','invisible'],pct:31},{label:'Teleportation',aliases:['teleport','teleportation'],pct:19},{label:'Other',aliases:[],pct:11}]},
- {prompt:'Name something people would buy if they won the lottery.',choices:[{label:'House',aliases:['house','home','new house','a house'],pct:46},{label:'Car',aliases:['car','new car','sports car'],pct:25},{label:'Vacation',aliases:['vacation','travel','trip','holiday'],pct:17},{label:'Other',aliases:[],pct:12}]}
+import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from "react";
+import { ArrowRight, Check, Crown, Hexagon, Share2 } from "lucide-react";
+
+type Result = {
+  prompt: string;
+  guess: string;
+  points: number;
+  matched: number;
+  choices: { label: string; pct: number }[];
+};
+type Board = {
+  date: string;
+  resetsAt: number;
+  count: number;
+  tiers: number[];
+  prompt: string | null;
+  results: Result[] | null;
+};
+
+const verdicts = [
+  { label: "Hive-Minded", step: 3, className: "hive-minded" },
+  { label: "Common Thought", step: 2, className: "common-thought" },
+  { label: "In the Same Field", step: 1, className: "same-field" },
+  { label: "Wrong Hive", step: -2, className: "wrong-hive" },
 ];
-const maxScore=questions.reduce((s,q)=>s+q.choices[0].pct,0);
-const today=()=>new Date().toLocaleDateString('en-CA',{timeZone:'America/Chicago'});
-const normalize=(s:string)=>s.toLowerCase().trim().replace(/[^a-z0-9 ]/g,'').replace(/\s+/g,' ');
-const resultFor=(q:Question,input:string)=>q.choices.find(c=>c.aliases.includes(normalize(input)))||q.choices[q.choices.length-1];
-const ranks=[{min:.82,name:'The Hive Mind',detail:'You and the queen think alike.'},{min:.62,name:'Royal Advisor',detail:'The queen trusts your instincts.'},{min:.4,name:'Busy Bee',detail:'You know your fellow bees pretty well.'},{min:0,name:'Lone Bee',detail:'You march to your own buzz.'}];
-function Bee({size=46}:{size?:number}){return <svg width={size} height={size} viewBox="0 0 100 100" aria-hidden="true"><ellipse cx="33" cy="31" rx="21" ry="15" fill="#fff5d5" stroke="#4b2c13" strokeWidth="4" transform="rotate(-35 33 31)"/><ellipse cx="68" cy="31" rx="21" ry="15" fill="#fff5d5" stroke="#4b2c13" strokeWidth="4" transform="rotate(35 68 31)"/><ellipse cx="50" cy="58" rx="34" ry="30" fill="#f4b832" stroke="#4b2c13" strokeWidth="5"/><path d="M35 33v49M56 30v56" stroke="#4b2c13" strokeWidth="12"/><ellipse cx="50" cy="58" rx="34" ry="30" fill="none" stroke="#4b2c13" strokeWidth="5"/><circle cx="38" cy="50" r="4" fill="#fff"/><circle cx="62" cy="50" r="4" fill="#fff"/><path d="M43 63q7 8 14 0" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round"/></svg>}
-function HiveProgress({current,done}:{current:number;done:boolean}){return <div className="hive-progress" aria-label={`Hive progress: ${done?7:current} of 7 chambers completed`}>{Array.from({length:7},(_,i)=><div key={i} className={`hex ${i<current||done?'filled':''} ${i===current&&!done?'active':''}`}>{i===6?<Crown size={19}/>:i+1}</div>)}</div>}
-export default function Home(){
- const [phase,setPhase]=useState<'home'|'play'|'end'>('home');const [index,setIndex]=useState(0);const [answer,setAnswer]=useState('');const [revealed,setRevealed]=useState(false);const [history,setHistory]=useState<{answer:string;points:number;label:string}[]>([]);const [copied,setCopied]=useState(false);const [ready,setReady]=useState(false);
- useEffect(()=>{try{const raw=localStorage.getItem('hivemind-v1');if(raw){const saved=JSON.parse(raw);if(saved.date===today()&&Array.isArray(saved.history)){setHistory(saved.history);setIndex(Math.min(saved.history.length,6));setPhase(saved.history.length===7?'end':'play');setRevealed(false)}}}catch{}setReady(true)},[]);
- const score=history.reduce((s,h)=>s+h.points,0);const rank=ranks.find(r=>score/maxScore>=r.min)||ranks[3];const question=questions[index];const last=history[index];
- const submit=()=>{if(!answer.trim()||revealed)return;const choice=resultFor(question,answer);const next=[...history,{answer:answer.trim(),points:choice.pct,label:choice.label}];setHistory(next);setRevealed(true);localStorage.setItem('hivemind-v1',JSON.stringify({date:today(),history:next}));};
- const next=()=>{setAnswer('');setRevealed(false);if(index===6){setPhase('end')}else{setIndex(i=>i+1)}};
- const reset=()=>{localStorage.removeItem('hivemind-v1');setHistory([]);setIndex(0);setAnswer('');setRevealed(false);setPhase('home')};
- const share=async()=>{const grid=history.map((h,i)=>h.points===questions[i].choices[0].pct?'🟨':h.points>=20?'🟧':'⬛').join('');const txt=`🐝 THE HIVE MIND · ${today()}\n${grid}\n${score}/${maxScore} · ${rank.name}\nThink like the hive!`;try{await navigator.clipboard.writeText(txt);setCopied(true);setTimeout(()=>setCopied(false),2000)}catch{}};
- if(!ready)return <main className="shell"><div className="loading">Waking the hive...</div></main>;
- return <main className="shell"><header className="topbar"><button className="brand" onClick={()=>setPhase('home')}><Bee size={36}/><span>THE HIVE MIND</span></button><div className="topright"><span className="daily"><span className="pulse"/> DAILY CHALLENGE</span><span className="demo">DEMO DATA</span></div></header>
- {phase==='home'&&<section className="hero"><div className="eyebrow"><Sparkles size={16}/> THE DAILY CONSENSUS GAME</div><div className="hero-bee"><Bee size={114}/></div><h1>Think like<br/><em>the hive.</em></h1><p className="lead">The goal isn't to be right. It's to be <strong>like everyone else.</strong> Guess the crowd's favorite answers, travel through seven honeycomb chambers, and reach the queen.</p><button className="primary big" onClick={()=>setPhase(history.length===7?'end':'play')}>{history.length===7?'See your results':history.length?'Continue your hive':'Play today’s hive'}<ArrowRight size={20}/></button><div className="how"><div><span className="how-num">01</span><strong>Read the prompt</strong><small>Seven questions each day</small></div><div><span className="how-num">02</span><strong>Think like the crowd</strong><small>Type the most popular answer</small></div><div><span className="how-num">03</span><strong>Find your hive</strong><small>See results instantly</small></div></div><div className="notice"><Info size={17}/> This preview uses fictional survey percentages. Live player consensus is not yet enabled.</div></section>}
- {phase==='play'&&<section className="game"><div className="game-head"><span className="eyebrow">YOUR JOURNEY TO THE QUEEN</span><div className="points"><Hexagon size={17}/> {score} <span>HONEY POINTS</span></div></div><HiveProgress current={index} done={false}/><div className="question-card"><div className="card-top"><span>CHAMBER {index+1} OF 7</span><span>{index===6?'THE ROYAL GATE':'THINK LIKE THE HIVE'}</span></div><div className="mini-bee"><Bee size={62}/></div><h2>{question.prompt}</h2><p>What do you think most people would say?</p><form onSubmit={e=>{e.preventDefault();submit()}}><input autoFocus aria-label="Your guess" maxLength={80} placeholder="Type your answer here..." value={answer} disabled={revealed} onChange={e=>setAnswer(e.target.value)}/>{!revealed&&<button className="primary" disabled={!answer.trim()} type="submit">Lock in my guess <ArrowRight size={18}/></button>}</form>
- {revealed&&last&&<div className="results"><div className="result-banner"><div><small>YOU GUESSED</small><strong>{last.answer}</strong></div><div className="result-points">+{last.points}<small>POINTS</small></div></div><h3>{last.label===question.choices[0].label?'You matched the hive! 🐝':'Here’s what the hive thought'}</h3><p className="sub">Example consensus breakdown · not live results</p>{question.choices.map(c=><div className="bar-row" key={c.label}><div className="bar-label"><span>{c.label}{c.label===last.label?' ✓':''}</span><strong>{c.pct}%</strong></div><div className="track"><div className={`fill ${c.label===last.label?'mine':''}`} style={{width:`${c.pct}%`}}/></div></div>)}<button className="primary next" onClick={next}>{index===6?'Meet your hive rank':'Go deeper into the hive'}<ArrowRight size={19}/></button></div>}
- </div><p className="fineprint">Your progress is saved on this device. Consensus figures are illustrative.</p></section>}
- {phase==='end'&&<section className="finish"><div className="queen"><Crown size={65}/></div><div className="eyebrow">THE QUEEN'S CHAMBER</div><h1>{rank.name}</h1><p className="lead">{rank.detail}</p><div className="final-score"><span>YOUR HIVE SCORE</span><strong>{score}<small> / {maxScore}</small></strong></div><HiveProgress current={7} done/><div className="recap">{history.map((h,i)=><div key={i}><span>Chamber {i+1}</span><strong>+{h.points}</strong></div>)}</div><button className="primary big" onClick={share}>{copied?<Check size={19}/>:<Share2 size={19}/>} {copied?'Copied to clipboard':'Share your results'}</button><button className="secondary" onClick={reset}><RotateCcw size={16}/> Reset demo</button><p className="fineprint">This is a preview with illustrative consensus data, not a live public leaderboard.</p></section>}
- <footer>© {new Date().getFullYear()} THE HIVE MIND <span>BUZZ TOGETHER. THINK TOGETHER.</span></footer></main>
+
+function verdict(tier: number) {
+  return verdicts[tier] ?? verdicts[3];
+}
+
+function HiveInterior() {
+  return <div className="hive-interior" aria-hidden="true">
+    <div className="hive-walls">
+      {Array.from({ length: 11 }, (_, ring) => (
+        <div className="hive-ring" key={ring} style={{ "--ring": ring } as CSSProperties}>
+          {Array.from({ length: 6 }, (_, facet) => (
+            <i key={facet} style={{ "--facet": facet } as CSSProperties} />
+          ))}
+        </div>
+      ))}
+    </div>
+  </div>;
+}
+
+export default function Home() {
+  const [board, setBoard] = useState<Board | null>(null);
+  const [playing, setPlaying] = useState(false);
+  const [guess, setGuess] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const [share, setShare] = useState("");
+  const [copied, setCopied] = useState(false);
+  const input = useRef<HTMLInputElement>(null);
+  const summary = useRef<HTMLHeadingElement>(null);
+
+  async function loadBoard() {
+    try {
+      const response = await fetch("/api/hive", { cache: "no-store" });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
+      setBoard(data);
+      setError("");
+    } catch {
+      setError("The hive is unavailable. Try loading the board again.");
+    }
+  }
+
+  useEffect(() => { void loadBoard(); }, []);
+
+  useEffect(() => {
+    if (!board) return;
+    const remaining = board.resetsAt - Date.now();
+    const refresh = () => {
+      setPlaying(false);
+      setGuess("");
+      setShare("");
+      setCopied(false);
+      void loadBoard();
+    };
+    const timer = window.setTimeout(refresh, remaining > 0 ? remaining + 100 : 1000);
+    const onFocus = () => { if (Date.now() >= board.resetsAt) refresh(); };
+    window.addEventListener("focus", onFocus);
+    return () => {
+      window.clearTimeout(timer);
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [board]);
+
+  useEffect(() => {
+    if (playing && !busy) {
+      if (board?.results) summary.current?.focus();
+      else input.current?.focus();
+    }
+  }, [playing, busy, board]);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!board || busy || !guess.trim()) return;
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/hive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ guess, date: board.date, index: board.count }),
+      });
+      const data = await response.json();
+      if (!response.ok && response.status !== 409) throw new Error(data.error);
+      setBoard(data);
+      setGuess("");
+      if (data.error) setError(data.error);
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "Could not save your guess. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  const results = board?.results;
+  const lastVerdict = board?.count ? verdict(board.tiers[board.count - 1]) : null;
+  const depth = board?.tiers.reduce((position, tier) => Math.max(0, position + verdict(tier).step), 0) ?? 0;
+  const location = depth >= 17 ? "Queen’s chamber" : depth >= 10 ? "Inner hive" : depth >= 4 ? "Honeycomb passage" : "Outer hive";
+  const score = results?.reduce((total, row) => total + row.points, 0) ?? 0;
+  const maximum = results?.reduce((total, row) => total + row.choices[0].pct, 0) ?? 0;
+  const ratio = maximum ? score / maximum : 0;
+  const rank = ratio >= .82 ? "Queen Bee" : ratio >= .62 ? "Royal Advisor" : ratio >= .4 ? "Busy Bee" : "Lone Bee";
+  const date = board && new Intl.DateTimeFormat("en", { dateStyle: "medium", timeZone: "UTC" })
+    .format(new Date(board.date + "T00:00:00Z"));
+
+  async function copyScore() {
+    if (!results || !board) return;
+    const cells = results.map(row => row.matched === 0 ? "🟨" : row.points ? "🟧" : "⬛").join("");
+    const message = `🐝 The Hive Mind · ${board.date}\n${cells}\n${score}/${maximum} · ${rank} · Simulated results\n${window.location.origin}`;
+    try {
+      await navigator.clipboard.writeText(message);
+      setCopied(true);
+    } catch {
+      setShare(message);
+    }
+  }
+
+  return (
+    <main className="shell" style={{ "--depth": playing ? depth : 0 } as CSSProperties}>
+      <HiveInterior />
+      <header className="masthead">
+        <button className="brand" onClick={() => setPlaying(false)}><Hexagon size={22} aria-hidden /> The Hive Mind</button>
+        <span className="mode">Simulated results</span>
+      </header>
+
+      {!playing && (
+        <section className="hero">
+          <div className="emblem" aria-hidden><span>🐝</span></div>
+          <p className="eyebrow">{date ? `Daily hive / ${date}` : "Daily hive"}</p>
+          <h1>Think like<br /><em>the hive.</em></h1>
+          <p className="intro">Seven strange questions. Guess what most people would say and make your way to the queen.</p>
+          <button className="primary" disabled={!board && !error} onClick={() => board ? setPlaying(true) : void loadBoard()}>
+            {results ? "See your results" : board?.count ? "Continue your hive" : board ? "Enter the hive" : error ? "Try again" : "Opening the hive…"}
+            <ArrowRight size={20} aria-hidden />
+          </button>
+          <details>
+            <summary>How to play</summary>
+            <p>Type one guess per chamber. Each locked guess gets a verdict. Better guesses move you toward the queen. The answer breakdowns open after the seventh guess. A new board opens at midnight UTC.</p>
+          </details>
+        </section>
+      )}
+
+      {error && <p className="error" role="alert">{error}</p>}
+
+      {playing && board && (
+        <section className="game">
+          <p className="eyebrow">{location} / {board.count} of 7 locked</p>
+          <ol className="comb" aria-label="Honeycomb progress">
+            {Array.from({ length: 7 }, (_, index) => (
+              <li key={index} className={index < board.count ? "filled" : index === board.count ? "active" : ""}
+                aria-label={`Chamber ${index + 1}${index < board.count ? ", locked" : ""}`}
+                aria-current={index === board.count ? "step" : undefined}>
+                {index === 6 ? <Crown size={20} aria-hidden /> : index < board.count ? <Check size={18} aria-hidden /> : index + 1}
+              </li>
+            ))}
+          </ol>
+
+          <div className="verdict-area" role="status">
+            {lastVerdict && (
+              <p className={`verdict ${lastVerdict.className}`}>
+                <span>Chamber {board.count}</span> {lastVerdict.label}
+              </p>
+            )}
+          </div>
+
+          {!results ? (
+            <div className="panel">
+              <p className="eyebrow">Chamber {board.count + 1} of 7</p>
+              <h2 id="prompt">{board.prompt}</h2>
+              <form onSubmit={submit}>
+                <label htmlFor="guess">What would most people say?</label>
+                <input id="guess" ref={input} aria-describedby="prompt" value={guess} onChange={event => setGuess(event.target.value)}
+                  maxLength={60} autoComplete="off" placeholder="Type your guess" readOnly={busy} required />
+                <button className="primary" disabled={busy || !guess.trim()}>
+                  {busy ? "Locking guess…" : board.count === 6 ? "Lock guess and reveal" : "Lock in guess"} <ArrowRight size={20} aria-hidden />
+                </button>
+              </form>
+            </div>
+          ) : (
+            <>
+              <div className="panel finale">
+                <Crown size={42} aria-hidden />
+                <h2 ref={summary} tabIndex={-1}>{rank}</h2>
+                <p><strong>{score} / {maximum}</strong> honey points</p>
+                <p>Simulated results use fictional percentages.</p>
+                <button className="primary" onClick={() => void copyScore()}>
+                  <Share2 size={18} aria-hidden /> {copied ? "Copied!" : "Copy score"}
+                </button>
+                {share && <textarea aria-label="Score to copy" value={share} readOnly onFocus={event => event.target.select()} />}
+              </div>
+              {results.map((row, index) => (
+                <article className="panel breakdown" key={row.prompt}>
+                  <p className="eyebrow">Chamber {index + 1}</p>
+                  <h3>{row.prompt}</h3>
+                  <p className="your-guess">Your guess <strong>{row.guess}</strong> · <span className={verdict(row.matched).className}>{verdict(row.matched).label}</span></p>
+                  <ul>
+                    {row.choices.map((choice, choiceIndex) => (
+                      <li key={choice.label} className={row.matched === choiceIndex ? "matched" : ""}>
+                        <div><span>{choice.label}{row.matched === choiceIndex && " ✓"}</span><strong>{choice.pct}%</strong></div>
+                        <div className="track" aria-hidden><span style={{ width: `${choice.pct}%` }} /></div>
+                      </li>
+                    ))}
+                  </ul>
+                </article>
+              ))}
+            </>
+          )}
+        </section>
+      )}
+      <footer>New board at midnight UTC <span>Progress saved in this browser</span></footer>
+    </main>
+  );
 }

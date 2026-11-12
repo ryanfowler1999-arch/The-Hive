@@ -1,34 +1,21 @@
-# The Hive Mind 🐝
+# The Hive Mind
 
-A deployable Next.js prototype of a daily consensus guessing game.
+A Next.js daily consensus game. The server chooses a seven-question board from a seven-board pool using the UTC date. The pool repeats weekly. Each guess immediately receives one simulated verdict: Hive-Minded, Common Thought, In the Same Field, or Wrong Hive. The verdict moves the player through the hive. Full answer breakdowns stay behind the seventh guess. An HTTP-only signed cookie saves progress in the current browser through the daily reset.
 
 ## Run locally
 
-1. Install Node.js 20 or newer.
-2. In this folder run `npm install`.
-3. Run `npm run dev` and open http://localhost:3000.
+Use Node.js 22 or newer and run `pnpm install --frozen-lockfile`. Generate a private secret with `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"` and put it in a local `.env.local` as `HIVE_GAME_SECRET=<generated value>`. Run `pnpm dev` and open http://localhost:3000.
 
-## Publish to the web with Vercel
+## Publish to the existing Vercel project
 
-1. Create a GitHub repository and upload the contents of this folder (not the ZIP itself).
-2. Visit https://vercel.com/new and import the GitHub repository.
-3. Keep the detected **Next.js** framework settings and click **Deploy**.
-4. Vercel will provide a public `.vercel.app` URL. A custom domain can be added later under Project Settings → Domains.
+1. Commit the change on a GitHub branch and open a pull request against the project's production branch. Confirm the existing Vercel project is linked to `ryanfowler1999-arch/The-Hive`.
+2. In Vercel project settings, add a strong `HIVE_GAME_SECRET` for Preview and Production. Keep the value private and stable within each environment. Changing it invalidates in-progress cookies and changes simulated scores.
+3. Deploy the branch and check the Vercel preview. Play seven guesses, reload mid-game, confirm that each verdict appears immediately and answer breakdowns first appear after guess seven, and check a narrow mobile viewport. Merge to the configured production branch when ready.
+4. In the Vercel project's Domains screen, verify `thehivemind.me` is assigned and apply the exact DNS records Vercel lists at your active DNS provider. Use the Vercel deployment URL to test while DNS propagates.
 
-## IMPORTANT: Prototype limitations
+## Move to genuine consensus
 
-- **All consensus percentages are fictional illustrative examples.** The UI explicitly labels them as demo data.
-- Questions are currently a fixed seven-question set, **not rotated daily**.
-- Results are stored in the browser's `localStorage`, not in a shared database. They are not cross-device or tamper-resistant.
-- Answer matching uses a small explicit alias dictionary; unfamiliar answers fall into "Other." This is a demo simplification and can misclassify legitimate responses.
-- No real-time multiplayer, login, moderation, rate limits, or real survey sample is connected.
-- "Reset demo" clears this device's progress.
-- A real release needs a database (e.g. Supabase), a question scheduling/admin system, response normalization and moderation, and a precomputed frozen consensus snapshot for fair instant scoring. Never represent demo figures as genuine user statistics.
-
-## Proposed production scoring model
-
-Each prompt has a versioned consensus snapshot, derived from a previously closed response collection window. A player's guess is normalized, grouped with equivalent responses, and scored using the share of the frozen snapshot belonging to that group. This ensures the same answer receives the same score for every player on a given day.
-
-## Tech
-
-Next.js App Router, React, TypeScript, CSS, lucide-react. No credentials required for the prototype.
+- Use Postgres tables for dated boards, seven ordered prompts per board, stable response groups and aliases, player runs, per-prompt guesses, and versioned consensus snapshots. Assign a board and snapshot ID to each run. Keep published boards immutable.
+- Record each guess on the server in a transaction with a unique run-and-prompt key. Use anonymous signed session IDs initially and rate-limit writes. Keep raw free text private with retention limits and moderate or normalize it before grouping.
+- Collect an independent sample for each prompt before its scored board goes live. At a defined cutoff, freeze the counts, denominators, and alias versions after reaching a published minimum sample size. Use that snapshot for every player on the board. Continue labeling a board simulated if it uses fictional figures.
+- Give browser clients access only through the game API. Return the active prompt, locked count, and the submitted guesses’ verdicts until all seven unique guesses commit. Then return only that board's aggregate results and the player's score. Never put snapshots or signing secrets in public assets or a public repository. Cookie-based demo progress does not enforce one player per day across browsers or prevent players from sharing completed answers.
