@@ -5,7 +5,7 @@ import { boards } from "./deck";
 export const dynamic = "force-dynamic";
 
 const dayMs = 86_400_000;
-const cookieName = "hive-board";
+const cookieName = "hive-board-v2";
 const secret = () => process.env.HIVE_GAME_SECRET;
 const sign = (value: string) => createHmac("sha256", secret()!).update(value).digest();
 const normalize = (value: string) => value.normalize("NFKD")

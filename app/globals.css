@@ -197,3 +197,103 @@ footer { margin-top: auto; border-top: 1px solid #d99c544d; padding: 1.1rem 0; c
 @media (prefers-reduced-motion: reduce) {
   .hive-walls { transition: none; }
 }
+
+/* Keep the prompt and answer controls on opposite sides of the flight path. */
+.flight-hud {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .7rem;
+  text-align: left;
+}
+.flight-hud .eyebrow, .depth-readout {
+  margin: 0;
+  padding: .55rem .7rem;
+  background: #1b110bee;
+  border: 1px solid #936439;
+}
+.depth-readout {
+  color: var(--muted);
+  font: .73rem "IBM Plex Mono", monospace;
+  white-space: nowrap;
+}
+.depth-readout strong { color: var(--amber); }
+.arcade { width: min(100% - 2rem, 74rem); }
+.arcade .game {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  width: min(100%, 52rem);
+  margin: 1rem auto;
+}
+.arcade .comb { margin: .75rem 0; }
+.comb .filled { background: var(--tier-color); color: #1b110b; }
+.hive-minded { --tier-color: #ffd475; }
+.common-thought { --tier-color: #f7bc8f; }
+.same-field { --tier-color: #eee0b6; }
+.wrong-hive { --tier-color: #ff9c95; }
+.playfield {
+  flex: 1;
+  display: grid;
+  grid-template-rows: minmax(10rem, 1fr) auto;
+  justify-items: center;
+  gap: 2rem;
+}
+.prompt-panel {
+  align-self: center;
+  width: min(100%, 38rem);
+  background: #261913ed;
+  border-left: 3px solid #ffbe5b;
+  text-align: left;
+}
+.prompt-panel h2 {
+  margin: .65rem 0 0;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: clamp(1.35rem, 3.7vw, 2.15rem);
+  letter-spacing: -.035em;
+}
+.answer-dock {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: .5rem;
+  background: #1b110bf2;
+  padding: .65rem;
+  border: 1px solid #936439;
+}
+.answer-dock label { grid-column: 1 / -1; font-size: .85rem; }
+.answer-dock .primary { min-height: 2.75rem; }
+.flight-marker {
+  position: fixed;
+  z-index: -1;
+  top: 58%;
+  left: max(1rem, calc(50% - 35rem));
+  transform: translateY(calc(var(--depth, 0) * -1.1vh)) rotate(-18deg);
+  transition: transform 850ms cubic-bezier(.2,.75,.25,1);
+  font-size: clamp(1.8rem, 4vw, 3.25rem);
+  filter: drop-shadow(0 0 .8rem #ffab38);
+  pointer-events: none;
+}
+.arcade .verdict-area { min-height: 2.8rem; margin: 0; }
+.verdict { animation: verdict-arrival 500ms ease-out both; }
+.verdict.wrong-hive { animation-name: verdict-recoil; }
+@keyframes verdict-arrival {
+  from { opacity: .35; transform: translateY(.7rem) scale(.88); box-shadow: 0 0 1.4rem currentColor; }
+  to { opacity: 1; transform: none; box-shadow: 0 0 .35rem currentColor; }
+}
+@keyframes verdict-recoil {
+  0% { transform: translateX(-.5rem); }
+  25% { transform: translateX(.5rem); box-shadow: 0 0 1.4rem currentColor; }
+  55% { transform: translateX(-.25rem); }
+  100% { transform: none; }
+}
+@media (max-width: 520px) {
+  .answer-dock { grid-template-columns: 1fr; }
+  .playfield { gap: 1rem; }
+  .flight-marker { left: .2rem; }
+  .arcade footer { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .flight-marker { transition: none; }
+  .verdict, .verdict.wrong-hive { animation: none; }
+}

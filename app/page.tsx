@@ -142,8 +142,9 @@ export default function Home() {
   }
 
   return (
-    <main className="shell" style={{ "--depth": playing ? depth : 0 } as CSSProperties}>
+    <main className={playing && board && !results ? "shell arcade" : "shell"} style={{ "--depth": playing ? depth : 0 } as CSSProperties}>
       <HiveInterior />
+      {playing && board && !results && <div className="flight-marker" aria-hidden="true">🐝</div>}
       <header className="masthead">
         <button className="brand" onClick={() => setPlaying(false)}><Hexagon size={22} aria-hidden /> The Hive Mind</button>
         <span className="mode">Simulated results</span>
@@ -170,10 +171,13 @@ export default function Home() {
 
       {playing && board && (
         <section className="game">
-          <p className="eyebrow">{location} / {board.count} of 7 locked</p>
+          <div className="flight-hud">
+            <p className="eyebrow">{location} / {board.count} of 7 locked</p>
+            <p className="depth-readout"><span>Hive depth</span> <strong>{Math.round(depth / 21 * 100)}%</strong></p>
+          </div>
           <ol className="comb" aria-label="Honeycomb progress">
             {Array.from({ length: 7 }, (_, index) => (
-              <li key={index} className={index < board.count ? "filled" : index === board.count ? "active" : ""}
+              <li key={index} className={index < board.count ? "filled " + verdict(board.tiers[index]).className : index === board.count ? "active" : ""}
                 aria-label={`Chamber ${index + 1}${index < board.count ? ", locked" : ""}`}
                 aria-current={index === board.count ? "step" : undefined}>
                 {index === 6 ? <Crown size={20} aria-hidden /> : index < board.count ? <Check size={18} aria-hidden /> : index + 1}
@@ -183,17 +187,17 @@ export default function Home() {
 
           <div className="verdict-area" role="status">
             {lastVerdict && (
-              <p className={`verdict ${lastVerdict.className}`}>
+              <p key={board.count} className={`verdict ${lastVerdict.className}`}>
                 <span>Chamber {board.count}</span> {lastVerdict.label}
               </p>
             )}
           </div>
 
           {!results ? (
-            <div className="panel">
-              <p className="eyebrow">Chamber {board.count + 1} of 7</p>
-              <h2 id="prompt">{board.prompt}</h2>
-              <form onSubmit={submit}>
+            <div className="playfield">
+              <div className="panel prompt-panel"><p className="eyebrow">Chamber {board.count + 1} of 7</p>
+              <h2 id="prompt">{board.prompt}</h2></div>
+              <form className="answer-dock" onSubmit={submit}>
                 <label htmlFor="guess">What would most people say?</label>
                 <input id="guess" ref={input} aria-describedby="prompt" value={guess} onChange={event => setGuess(event.target.value)}
                   maxLength={60} autoComplete="off" placeholder="Type your guess" readOnly={busy} required />
