@@ -326,3 +326,8 @@ footer { margin-top: auto; border-top: 1px solid #d99c544d; padding: 1.1rem 0; c
 @media (prefers-reduced-motion: reduce) {
   .journey-scene, .journey-hive { transition: none; }
 }
+
+.answer-tier { margin-top: 1.15rem; padding-top: .7rem; border-top: 1px solid #684728; }
+.answer-tier h4 { margin: 0; font: 600 .82rem "IBM Plex Mono", monospace; text-transform: uppercase; }
+
+footer a { color: inherit; }

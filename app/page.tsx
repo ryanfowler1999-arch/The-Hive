@@ -8,12 +8,14 @@ type Result = {
   guess: string;
   points: number;
   matched: number;
-  choices: { label: string; pct: number }[];
+  tier: number;
+  choices: { label: string; pct: number | null; tier: number }[];
 };
 type Board = {
   date: string;
   resetsAt: number;
   count: number;
+  maxPoints: number;
   deadline: number | null;
   serverNow: number;
   last: { guess: string; points: number } | null;
@@ -91,8 +93,8 @@ export default function Home() {
       setClockOffset(data.serverNow - Date.now());
       setReview(Boolean(data.last && !data.deadline && !data.results));
       setError("");
-    } catch {
-      setError("The hive is unavailable. Try loading the board again.");
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : "The hive is unavailable. Try again.");
     }
   }
 
@@ -181,7 +183,7 @@ export default function Home() {
   const depth = board?.tiers.reduce((position, tier) => Math.max(0, position + verdict(tier).step), 0) ?? 0;
   const location = depth >= 17 ? "Queen’s chamber" : depth >= 10 ? "Inner hive" : depth >= 4 ? "Honeycomb passage" : "Outer hive";
   const score = results?.reduce((total, row) => total + row.points, 0) ?? 0;
-  const maximum = results?.reduce((total, row) => total + row.choices[0].pct, 0) ?? 0;
+  const maximum = board?.maxPoints ?? 0;
   const ratio = maximum ? score / maximum : 0;
   const rank = ratio >= .82 ? "Queen Bee" : ratio >= .62 ? "Royal Advisor" : ratio >= .4 ? "Busy Bee" : "Lone Bee";
   const date = board && new Intl.DateTimeFormat("en", { dateStyle: "medium", timeZone: "UTC" })
@@ -189,8 +191,8 @@ export default function Home() {
 
   async function copyScore() {
     if (!results || !board) return;
-    const cells = results.map(row => row.matched === 0 ? "🟨" : row.points ? "🟧" : "⬛").join("");
-    const message = `🐝 The Hive Mind · ${board.date}\n${cells}\n${score}/${maximum} · ${rank} · Simulated results\n${window.location.origin}`;
+    const cells = results.map(row => row.tier === 0 ? "🟨" : row.points ? "🟧" : "⬛").join("");
+    const message = `🐝 The Hive Mind · ${board.date}\n${cells}\n${score}/${maximum} · ${rank} · Published survey responses\n${window.location.origin}`;
     try {
       await navigator.clipboard.writeText(message);
       setCopied(true);
@@ -208,7 +210,7 @@ export default function Home() {
       {playing && board && !results && <div className="flight-marker" aria-hidden="true">🐝</div>}
       <header className="masthead">
         <button className="brand" onClick={() => setPlaying(false)}><Hexagon size={22} aria-hidden /> The Hive Mind</button>
-        <span className="mode">Simulated results</span>
+        <span className="mode">Survey results</span>
       </header>
 
       {!playing && (
@@ -289,7 +291,7 @@ export default function Home() {
                 <Crown size={42} aria-hidden />
                 <h2 ref={summary} tabIndex={-1}>{rank}</h2>
                 <p><strong>{score} / {maximum}</strong> honey points</p>
-                <p>Simulated results use fictional percentages.</p>
+                <p>Ranked using published survey responses.</p>
                 <button className="primary" onClick={() => void copyScore()}>
                   <Share2 size={18} aria-hidden /> {copied ? "Copied!" : "Copy score"}
                 </button>
@@ -299,22 +301,28 @@ export default function Home() {
                 <article className="panel breakdown" key={row.prompt}>
                   <p className="eyebrow">Chamber {index + 1}</p>
                   <h3>{row.prompt}</h3>
-                  <p className="your-guess">Your guess <strong>{row.guess || "Timed out"}</strong> · <span className={verdict(row.matched >= 3 ? 2 : row.matched > 0 ? 1 : row.matched).className}>{verdict(row.matched).label}</span></p>
-                  <ul>
-                    {row.choices.map((choice, choiceIndex) => (
-                      <li key={choice.label} className={row.matched === choiceIndex ? "matched" : ""}>
-                        <div><span>{choice.label}{row.matched === choiceIndex && " ✓"}</span><strong>{choice.pct}%</strong></div>
-                        <div className="track" aria-hidden><span style={{ width: `${choice.pct}%` }} /></div>
-                      </li>
-                    ))}
-                  </ul>
+                  <p className="your-guess">Your guess <strong>{row.guess || "Timed out"}</strong> · <span className={verdict(row.tier).className}>{verdict(row.matched).label}</span></p>
+                  {verdicts.slice(0, 3).map((group, tier) => {
+                    const choices = row.choices.filter(choice => choice.tier === tier);
+                    if (!choices.length) return null;
+                    return <section className="answer-tier" key={group.label}>
+                      <h4 className={group.className}>{group.label}</h4>
+                      <ul>{choices.map(choice => (
+                        <li key={choice.label} className={row.choices[row.matched] === choice ? "matched" : ""}>
+                          <div><span>{choice.label}{row.choices[row.matched] === choice && " ✓"}</span>
+                            <strong>{choice.pct === null ? "" : `${choice.pct}%`}</strong></div>
+                          {choice.pct !== null && <div className="track" aria-hidden><span style={{ width: `${choice.pct}%` }} /></div>}
+                        </li>
+                      ))}</ul>
+                    </section>;
+                  })}
                 </article>
               ))}
             </>
           ) : <button className="primary" disabled={busy} onClick={() => void send("start")}>Start question</button>}
         </section>
       )}
-      <footer>New board at midnight UTC <span>Progress saved in this browser</span></footer>
+      <footer>New board at midnight UTC <a href="https://github.com/iesl/protoqa-data">Survey data from ProtoQA</a></footer>
     </main>
   );
 }

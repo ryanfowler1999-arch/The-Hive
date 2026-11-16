@@ -1,21 +1,17 @@
 # The Hive Mind
 
-A Next.js daily consensus game. The server chooses a seven-question board from a seven-board pool using the UTC date. The pool repeats weekly. Each guess immediately receives one simulated verdict: Hive-Minded, Common Thought, In the Same Field, or Wrong Hive. The verdict moves the player through the hive. Full answer breakdowns stay behind the seventh guess. An HTTP-only signed cookie saves progress in the current browser through the daily reset.
+A daily consensus game. The server rotates three seven-question survey boards at midnight UTC. Players have 20 seconds per question. Each guess gets a verdict immediately, and the full ranked answer breakdown appears after all seven.
 
-## Run locally
+## Run and deploy
 
-Use Node.js 22 or newer and run `pnpm install --frozen-lockfile`. Generate a private secret with `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"` and put it in a local `.env.local` as `HIVE_GAME_SECRET=<generated value>`. Run `pnpm dev` and open http://localhost:3000.
+Use Node.js 22+, run `pnpm install --frozen-lockfile`, then `pnpm dev`. Set `HIVE_GAME_SECRET` to a strong private random value in `.env.local`.
 
-## Publish to the existing Vercel project
+For Vercel, keep `HIVE_GAME_SECRET` in the Preview and Production environment variables. Upload the extracted files to the GitHub repository root and make sure the latest production deployment is Ready. This release needs no survey environment variables, database, or manual answer entry. It starts a fresh run for players.
 
-1. Commit the change on a GitHub branch and open a pull request against the project's production branch. Confirm the existing Vercel project is linked to `ryanfowler1999-arch/The-Hive`.
-2. In Vercel project settings, add a strong `HIVE_GAME_SECRET` for Preview and Production. Keep the value private and stable within each environment. Changing it invalidates in-progress cookies and changes simulated scores.
-3. Deploy the branch and check the Vercel preview. Play seven guesses, reload mid-game, confirm that each verdict appears immediately and answer breakdowns first appear after guess seven, and check a narrow mobile viewport. Merge to the configured production branch when ready.
-4. In the Vercel project's Domains screen, verify `thehivemind.me` is assigned and apply the exact DNS records Vercel lists at your active DNS provider. Use the Vercel deployment URL to test while DNS propagates.
+## Survey data and scoring
 
-## Move to genuine consensus
+The 21 prompts and response counts come from the crowdsourced development split of [ProtoQA](https://github.com/iesl/protoqa-data), by Michael Boratko, Xiang Lorraine Li, Rajarshi Das, Tim O'Gorman, Dan Le, and Andrew McCallum. Source revision c6c5696cd0cc18d990499a431c2923cef8003104. See [ProtoQA: A Question Answering Dataset for Prototypical Common-Sense Reasoning](https://arxiv.org/abs/2005.00771). Licensed under Creative Commons Attribution 4.0 International. See PROTOQA-LICENSE.txt.
 
-- Use Postgres tables for dated boards, seven ordered prompts per board, stable response groups and aliases, player runs, per-prompt guesses, and versioned consensus snapshots. Assign a board and snapshot ID to each run. Keep published boards immutable.
-- Record each guess on the server in a transaction with a unique run-and-prompt key. Use anonymous signed session IDs initially and rate-limit writes. Keep raw free text private with retention limits and moderate or normalize it before grouping.
-- Collect an independent sample for each prompt before its scored board goes live. At a defined cutoff, freeze the counts, denominators, and alias versions after reaching a published minimum sample size. Use that snapshot for every player on the board. Continue labeling a board simulated if it uses fictional figures.
-- Give browser clients access only through the game API. Return the active prompt, locked count, and the submitted guesses’ verdicts until all seven unique guesses commit. Then return only that board's aggregate results and the player's score. Never put snapshots or signing secrets in public assets or a public repository. Cookie-based demo progress does not enforce one player per day across browsers or prevent players from sharing completed answers.
+Adaptations: selected a subset of the prompts, corrected one article, chose display labels from the most frequent response text in each published answer cluster, and ordered clusters by published count with alphabetical tie-breaking. Percentages use the sum of included cluster counts for each question. The responses are from the published survey.
+
+One answer earns 50 points; the next two earn 34; remaining recorded groups earn 18. Exact aliases and unambiguous whole-word partial matches count. Unrecognized answers and timeouts earn zero. This uses survey responses to score plausible alternatives, and some valid guesses may fall outside the sample. Answer groups remain server-side during play and are returned after the seventh guess. Survey source data is public.

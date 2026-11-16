@@ -1,11 +1,14 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { boards } from "./deck";
+import { publishedBoards } from "./published";
 
 export const dynamic = "force-dynamic";
 
 const dayMs = 86_400_000;
-const cookieName = "hive-board-v3";
+const cookieName = "hive-survey-v1";
+const tierFor = (index: number) => index < 0 ? -1 : index === 0 ? 0 : index < 3 ? 1 : 2;
+const tierPoints = [50, 34, 18];
+type Board = (typeof publishedBoards)[number];
 const roundMs = 20_000;
 type Progress = { guesses: string[]; deadline: number | null };
 const secret = () => process.env.HIVE_GAME_SECRET;
@@ -17,7 +20,8 @@ const normalize = (value: string) => value.normalize("NFKD")
 function dailyBoard() {
   const day = Math.floor(Date.now() / dayMs);
   const date = new Date(day * dayMs).toISOString().slice(0, 10);
-  return { date, board: boards[day % boards.length], resetsAt: (day + 1) * dayMs };
+  const board = publishedBoards[day % publishedBoards.length];
+  return { date, board, resetsAt: (day + 1) * dayMs };
 }
 
 function readProgress(request: NextRequest, date: string): Progress {
@@ -40,15 +44,21 @@ function matches(group: string, guess: string, partial: boolean) {
   });
 }
 
-function reveal(board: (typeof boards)[number], guesses: string[]) {
-  return board.slice(0, guesses.length).map(([prompt, ...answers], index) => {
-    const exact = answers.findIndex(group => matches(group, guesses[index], false));
-    const partial = answers.flatMap((group, i) => matches(group, guesses[index], true) ? [i] : []);
+function reveal(board: Board, guesses: string[]) {
+  return board.slice(0, guesses.length).map(({ prompt, responses }, index) => {
+    const groups = responses.map(({ label, aliases }) => [label, ...aliases].join("|"));
+    const exact = groups.findIndex(group => matches(group, guesses[index], false));
+    const partial = groups.flatMap((group, i) => matches(group, guesses[index], true) ? [i] : []);
     const matched = exact >= 0 ? exact : partial.length === 1 ? partial[0] : -1;
-    const points = matched === 0 ? 40 : matched === 1 || matched === 2 ? 24 : matched >= 3 ? 8 : 0;
-    const choices = answers.map((group, i) => ({ label: group.split("|")[0], pct: i === 0 ? 40 : i < 3 ? 18 : 6 }));
-    choices.push({ label: "Other answers", pct: 100 - choices.reduce((total, choice) => total + choice.pct, 0) });
-    return { prompt, choices, matched, guess: guesses[index], points };
+    const tier = tierFor(matched);
+    const points = tierPoints[tier] ?? 0;
+    const total = responses.reduce((sum, row) => sum + row.count, 0);
+    const choices = responses.map((row, i) => ({
+      label: row.label,
+      pct: Math.round(row.count / total * 1000) / 10,
+      tier: tierFor(i),
+    }));
+    return { prompt, choices, matched, tier, guess: guesses[index], points };
   });
 }
 
@@ -60,12 +70,12 @@ function state(daily: ReturnType<typeof dailyBoard>, progress: Progress) {
   const { guesses, deadline } = progress;
   const { date, board, resetsAt } = daily;
   const graded = reveal(board, guesses);
-  const tiers = graded.map(row => row.matched >= 3 ? 2 : row.matched > 0 ? 1 : row.matched);
+  const tiers = graded.map(row => row.tier);
   return {
-    date, resetsAt, tiers, deadline, serverNow: Date.now(),
+    date, resetsAt, tiers, deadline, real: true, maxPoints: board.length * tierPoints[0], serverNow: Date.now(),
     last: graded.length ? { guess: graded.at(-1)!.guess, points: graded.at(-1)!.points } : null,
     count: guesses.length,
-    prompt: deadline ? board[guesses.length]?.[0] ?? null : null,
+    prompt: deadline ? board[guesses.length]?.prompt ?? null : null,
     results: guesses.length === board.length ? graded : null,
   };
 }
