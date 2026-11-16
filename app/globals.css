@@ -297,3 +297,32 @@ footer { margin-top: auto; border-top: 1px solid #d99c544d; padding: 1.1rem 0; c
   .flight-marker { transition: none; }
   .verdict, .verdict.wrong-hive { animation: none; }
 }
+
+.round-review { margin: auto 0; }
+.round-clock { margin-bottom: 0; color: var(--muted); }
+.round-clock strong { color: var(--amber); font-variant-numeric: tabular-nums; }
+.spell-confirm { grid-column: 1 / -1; }
+.spell-confirm p { margin: .45rem 0; }
+.spell-confirm button { margin: .2rem .5rem .2rem 0; padding: .5rem .7rem; }
+.journey-scene { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; transition: opacity .8s, background 1s; }
+.journey-scene.field, .journey-scene.approach {
+  background: radial-gradient(circle at 79% 20%, #ffdc98 0 5%, transparent 5.5%), linear-gradient(#283955, #935b58 50%, #d49b5b);
+}
+.journey-hills { position: absolute; inset: 0; background: radial-gradient(ellipse at 15% 115%, #233927 0 48%, transparent 48.5%), radial-gradient(ellipse at 85% 120%, #425039 0 54%, transparent 54.5%); }
+.journey-hive {
+  position: absolute; left: 78%; bottom: 29%; width: 13rem; aspect-ratio: 1.1;
+  border-radius: 50% 50% 43% 43%;
+  background: radial-gradient(ellipse at 50% 83%, #231213 0 13%, transparent 14%), repeating-linear-gradient(0deg, #633516 0 .2rem, #b67932 .25rem 1rem, #dfa45c 1.1rem 1.25rem);
+  box-shadow: inset -1.5rem -.6rem 2rem #5b331a;
+  transform: translateX(-50%) scale(.55); transition: transform 1s, left 1s, bottom 1s;
+}
+.approach .journey-hive { left: 50%; bottom: 19%; transform: translateX(-50%) scale(2.35); }
+.journey-grass { position: absolute; inset: 80% 0 0; background: repeating-linear-gradient(102deg, #263c2b 0 3px, transparent 4px 24px), linear-gradient(transparent, #18241c); transform: skewY(-3deg); }
+.journey-scene.inside, .journey-scene.center { opacity: 0; }
+.journey-scene.center { opacity: .7; background: radial-gradient(ellipse at 50% 49%, #ffdc83 0, #ce711844 28%, transparent 65%); }
+.inside > div, .center > div { visibility: hidden; }
+.journey-scene ~ .flight-marker { z-index: 0; opacity: .75; }
+.masthead, .game, .hero, footer { position: relative; }
+@media (prefers-reduced-motion: reduce) {
+  .journey-scene, .journey-hive { transition: none; }
+}
